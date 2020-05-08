@@ -44,13 +44,13 @@
 
 		<div id="connection" class="header">
 		</div>
-		<input type="text" id="other_peer_id" value="PeerID to Call">
+		<input type="text" id="other_peer_id" value="PeerID to Call" onfocus="clearContents(this);">
 		<input type="button" value="Call" onclick="placecall()">
 		<br />
 		<div id="connstatus"></div>
 		<div id="textBox" class="box" onKeyPress="return checkSubmit(event)">
 			<p align="center">
-				<textarea id="message" name="message" class="textarea" onfocus="clearContents(this);">Press enter to submit.</textarea>
+				<textarea id="message" name="message" class="textarea" onfocus="clearContents(this);" style="width: 100%;">Press enter to submit.</textarea>
 			</p>
 		</div>
 		<div id="chatlog"></div>
@@ -262,6 +262,9 @@
 			var breakElement = document.createElement('br');
 			breakElement.className = 'brkElmt';
 			document.getElementById('chatlog').appendChild(breakElement);
+			
+			var chatlogDiv = document.getElementById('chatlog');
+			chatlogDiv.scrollTop = chatlogDiv.scrollHeight;
 		}
 
 		function addReceived() {
@@ -275,6 +278,9 @@
 			var breakElement = document.createElement('br');
 			breakElement.className = 'brkElmt';
 			document.getElementById('chatlog').appendChild(breakElement);
+			
+			var chatlogDiv = document.getElementById('chatlog');
+			chatlogDiv.scrollTop = chatlogDiv.scrollHeight;
 		}
 	
 		function checkSubmit(e) {

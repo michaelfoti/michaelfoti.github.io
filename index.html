@@ -9,9 +9,32 @@
 	  
 	  #chatlog
 	  {
-		height:224px;
+		height:250px;
+		width: 100%;
 		overflow:auto;
       }
+	  
+	  .yourText {
+		border-radius: 30px;
+		background: #73AD21;
+		padding: 10px; 
+		width: 200px;
+		float: right;
+		margin-top: 6px;
+	  }
+	  
+	  .theirText {
+		border-radius: 30px;
+		border: 2px solid #73AD21;
+		padding: 10px; 
+		width: 200px;
+		float: left;
+		margin-top: 6px;
+	  }	
+	  
+	  .brkElmt {
+		clear: both;
+	  }
     </style>
   </head>
   <body>
@@ -235,7 +258,10 @@
 			div.id = "line " + counter;
 	
 			document.getElementById('chatlog').appendChild(div);
-			document.getElementById(div.id).innerHTML = "<span id = 'me'>You</span>: " + document.getElementById('message').value;
+			document.getElementById(div.id).innerHTML = document.getElementById('message').value;
+			var breakElement = document.createElement('br');
+			breakElement.className = 'brkElmt';
+			document.getElementById('chatlog').appendChild(breakElement);
 		}
 
 		function addReceived() {
@@ -245,7 +271,10 @@
 			div.id = "line " + counter;
 	
 			document.getElementById('chatlog').appendChild(div);
-			document.getElementById(div.id).innerHTML = "<span id = 'them'>Them</span>: " + incoming;
+			document.getElementById(div.id).innerHTML = incoming;
+			var breakElement = document.createElement('br');
+			breakElement.className = 'brkElmt';
+			document.getElementById('chatlog').appendChild(breakElement);
 		}
 	
 		function checkSubmit(e) {

@@ -39,8 +39,8 @@
   </head>
   <body>
 	<center>
-	<div style="width: 500px;">
-		<canvas id="myCanvas" width="500" height="500" style="border:1px solid #000000;"></canvas>
+	<div id="appContainer" style="width: 33%;">
+		<canvas id="myCanvas" style="border:1px solid #000000;"></canvas>
 
 		<div id="connection" class="header">
 		</div>
@@ -229,15 +229,12 @@
 			});
 	
 			connection.on('data', function(data) {
-				//console.log(data);
 				incoming = data;
 				processIncoming(incoming)
-				//addReceived();
 			});
 		};
 
 		var sendmessage = function(message) {
-			//console.log("chatmessage: " + message);
 			connection.send(message);
 		};
 		
@@ -261,9 +258,8 @@
 			document.getElementById(div.id).innerHTML = document.getElementById('message').value;
 			var breakElement = document.createElement('br');
 			breakElement.className = 'brkElmt';
-			document.getElementById('chatlog').appendChild(breakElement);
-			
 			var chatlogDiv = document.getElementById('chatlog');
+			chatlogDiv.appendChild(breakElement);
 			chatlogDiv.scrollTop = chatlogDiv.scrollHeight;
 		}
 
@@ -277,15 +273,13 @@
 			document.getElementById(div.id).innerHTML = incoming;
 			var breakElement = document.createElement('br');
 			breakElement.className = 'brkElmt';
-			document.getElementById('chatlog').appendChild(breakElement);
-			
 			var chatlogDiv = document.getElementById('chatlog');
+			chatlogDiv.appendChild(breakElement);
 			chatlogDiv.scrollTop = chatlogDiv.scrollHeight;
 		}
 	
 		function checkSubmit(e) {
 			if (e && e.keyCode == 13) {
-				//console.log("yes");
 				submit();
 			}
 		}
@@ -320,6 +314,9 @@
 		}
 		
 		var init = function() {
+			var parent = document.getElementById("appContainer");
+			canvas.width = parent.offsetWidth;
+			canvas.height = parent.offsetWidth;
 			
 			var myId = generateIdString();
 			
@@ -329,12 +326,10 @@
 
 			peer.on('open', function(id) {
 				document.getElementById("connection").innerHTML = "My ID is " + id;
-				//console.log('My peer ID is: ' + id);
 				mypeerid = id;
 			});
 	
 			peer.on('connect', function() {
-				//console.log("Connected");
 				document.getElementById("connection").innerHTML = "Say something and see if anyone is listening.";
 	
 			});
@@ -346,10 +341,8 @@
 					document.getElementById('connstatus').innerHTML += "Connection Established";
 				});
 				connection.on('data', function(data) {
-					//console.log(data);
 					incoming = data;
 					processIncoming(incoming)
-					//addReceived();
 				});
 			});
 		};

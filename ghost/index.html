@@ -1,0 +1,376 @@
+<!DOCTYPE HTML>
+<html>
+  <head>
+    <style>
+      body {
+        margin: 0px;
+        padding: 0px;
+      }
+	  
+	  #chatlog
+	  {
+		height:250px;
+		width: 100%;
+		overflow:auto;
+      }
+	  
+	  .yourText {
+		border-radius: 30px;
+		background: #73AD21;
+		padding: 10px; 
+		width: 200px;
+		float: right;
+		margin-top: 6px;
+	  }
+	  
+	  .theirText {
+		border-radius: 30px;
+		border: 2px solid #73AD21;
+		padding: 10px; 
+		width: 200px;
+		float: left;
+		margin-top: 6px;
+	  }	
+	  
+	  .brkElmt {
+		clear: both;
+	  }
+    </style>
+  </head>
+  <body>
+	<center>
+	<div id="appContainer" style="width: 33%;">
+		<canvas id="myCanvas" style="border:1px solid #000000;"></canvas>
+
+		<div id="connection" class="header">
+		</div>
+		<input type="text" id="other_peer_id" value="PeerID to Call" onfocus="clearContents(this);">
+		<input type="button" value="Call" onclick="placecall()">
+		<br />
+		<div id="connstatus"></div>
+		<div id="textBox" class="box" onKeyPress="return checkSubmit(event)">
+			<p align="center">
+				<textarea id="message" name="message" class="textarea" onfocus="clearContents(this);" style="width: 100%;">Press enter to submit.</textarea>
+			</p>
+		</div>
+		<div id="chatlog"></div>
+		
+	</div>
+	</center>
+	<script src="https://cdn.jsdelivr.net/npm/peerjs@1.2.0/dist/peerjs.min.js"></script>
+    <script>
+		function drawCircle(context, x, y, r, s, f, w){
+			context.beginPath();
+			context.arc(x, y, r, 0, 2 * Math.PI, false);
+			context.fillStyle = f;
+			context.fill();
+			context.lineWidth = w;
+			context.strokeStyle = s;
+			context.stroke();
+		}
+		
+		function colorLuminance(hex, lum) {
+			// validate hex string
+			hex = String(hex).replace(/[^0-9a-f]/gi, '');
+			if (hex.length < 6) {
+				hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+			}
+			lum = lum || 0;
+		
+			// convert to decimal and change luminosity
+			var rgb = "#", c, i;
+			for (i = 0; i < 3; i++) {
+				c = parseInt(hex.substr(i*2,2), 16);
+				c = Math.round(Math.min(Math.max(0, c + (c * lum)), 255)).toString(16);
+				rgb += ("00"+c).substr(c.length);
+			}
+
+			return rgb;
+		}
+		
+		function getNewBrightnessColor(rgbcode, brightness) {
+			var r = parseInt(rgbcode.slice(1, 3), 16),
+			g = parseInt(rgbcode.slice(3, 5), 16),
+			b = parseInt(rgbcode.slice(5, 7), 16),
+			HSL = rgbToHsl(r, g, b),RGB;
+		
+			RGB = hslToRgb(HSL[0], HSL[1], brightness / 100);
+			rgbcode = '#' +
+			convertToTwoDigitHexCodeFromDecimal(RGB[0]) +
+			convertToTwoDigitHexCodeFromDecimal(RGB[1]) +
+			convertToTwoDigitHexCodeFromDecimal(RGB[2]);
+		
+			return rgbcode;
+		}
+		
+		function convertToTwoDigitHexCodeFromDecimal(decimal) {
+			var code = Math.round(decimal).toString(16);
+		
+			(code.length > 1) || (code = '0' + code);
+			return code;
+		}
+		
+		function rgbToHsl(r, g, b) {
+			r /= 255, g /= 255, b /= 255;
+			var max = Math.max(r, g, b),
+				min = Math.min(r, g, b);
+			var h, s, l = (max + min) / 2;
+			
+			if (max == min) {
+				h = s = 0; // achromatic
+			} else {
+				var d = max - min;
+				s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+				switch (max) {
+				case r:
+					h = (g - b) / d + (g < b ? 6 : 0);
+					break;
+				case g:
+					h = (b - r) / d + 2;
+					break;
+				case b:
+					h = (r - g) / d + 4;
+					break;
+				}
+				h /= 6;
+			}
+			
+			return [h, s, l];
+		}
+		
+		function hslToRgb(h, s, l) {
+			var r, g, b;
+			
+			if (s == 0) {
+				r = g = b = l; // achromatic
+			} else {
+				function hue2rgb(p, q, t) {
+				if (t < 0) t += 1;
+				if (t > 1) t -= 1;
+				if (t < 1 / 6) return p + (q - p) * 6 * t;
+				if (t < 1 / 2) return q;
+				if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+				return p;
+				}
+			
+				var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+				var p = 2 * l - q;
+				r = hue2rgb(p, q, h + 1 / 3);
+				g = hue2rgb(p, q, h);
+				b = hue2rgb(p, q, h - 1 / 3);
+			}
+			
+			return [r * 255, g * 255, b * 255];
+		}
+		
+		function getMousePos(canvas, evt) {
+			var rect = canvas.getBoundingClientRect();
+			return {
+				x: evt.clientX - rect.left,
+				y: evt.clientY - rect.top
+			};
+		}
+		
+		function draw(){
+			if(myBuffer.length > 0 || theirBuffer.length > 0){
+				context.clearRect(0, 0, 500, 500);
+				
+				var i = 0;
+				myBuffer.forEach(function(curCircle){
+					var brightness = 100 - (i*2);
+					var newColor = getNewBrightnessColor(curCircle.s, brightness);
+					drawCircle(context, curCircle.x, curCircle.y, curCircle.r, newColor, newColor, curCircle.w);
+					i++;
+				});
+				
+				var i2 = 0;
+				theirBuffer.forEach(function(curCircle){
+					var brightness = 100 - (i2*2);
+					var newColor = getNewBrightnessColor(curCircle.s, brightness);
+					drawCircle(context, curCircle.x, curCircle.y, curCircle.r, newColor, newColor, curCircle.w);
+					i2++;
+				});
+			}
+		}
+		
+		function saveInBuffer(circleObj){
+			myBuffer.push(circleObj);
+			if(myBuffer.length >= 50){
+				myBuffer.shift();
+			}
+		}
+		
+		function saveInTheirBuffer(circleObj){
+			theirBuffer.push(circleObj);
+			if(theirBuffer.length >= 50){
+				theirBuffer.shift();
+			}
+		}
+		
+		function mainLoop() {
+			draw();
+			window.requestAnimationFrame(mainLoop);
+		}
+
+		function Circle(xpos, ypos, radius, strokeColor, fillColor, strokeWidth) {
+			this.x = xpos;
+			this.y = ypos;
+			this.r = radius;
+			this.s = strokeColor;
+			this.f = fillColor;
+			this.w = strokeWidth;
+		}
+		
+		
+		var placecall = function() {
+			connection = peer.connect(document.getElementById('other_peer_id').value);
+			connection.on('open', function(data) {
+				document.getElementById('connstatus').innerHTML += "Connection Established";
+			});
+	
+			connection.on('data', function(data) {
+				incoming = data;
+				processIncoming(incoming)
+			});
+		};
+
+		var sendmessage = function(message) {
+			connection.send(message);
+		};
+		
+		var senddata = function(data) {
+			connection.send(data);
+		};
+
+		function submit() {
+			addSent();
+			sendmessage(document.getElementById('message').value);
+			document.getElementById("message").value = "";
+		}
+
+		function addSent() {
+			counter++;
+			var div = document.createElement('div');
+			div.className = 'yourText';
+			div.id = "line " + counter;
+	
+			document.getElementById('chatlog').appendChild(div);
+			document.getElementById(div.id).innerHTML = document.getElementById('message').value;
+			var breakElement = document.createElement('br');
+			breakElement.className = 'brkElmt';
+			var chatlogDiv = document.getElementById('chatlog');
+			chatlogDiv.appendChild(breakElement);
+			chatlogDiv.scrollTop = chatlogDiv.scrollHeight;
+		}
+
+		function addReceived() {
+			counter++;
+			var div = document.createElement('div');
+			div.className = 'theirText';
+			div.id = "line " + counter;
+	
+			document.getElementById('chatlog').appendChild(div);
+			document.getElementById(div.id).innerHTML = incoming;
+			var breakElement = document.createElement('br');
+			breakElement.className = 'brkElmt';
+			var chatlogDiv = document.getElementById('chatlog');
+			chatlogDiv.appendChild(breakElement);
+			chatlogDiv.scrollTop = chatlogDiv.scrollHeight;
+		}
+	
+		function checkSubmit(e) {
+			if (e && e.keyCode == 13) {
+				submit();
+			}
+		}
+	
+		function clearContents(element) {
+			element.value = '';
+		}
+		
+		function processIncoming(incoming){
+			if(incoming.startsWith("{")){
+				var incomingData = JSON.parse(incoming);
+				saveInTheirBuffer(incomingData);
+				return;
+			}
+			addReceived();
+		}
+		
+		function generateIdString(){
+			var threeLetterWords = ["aah","aal","aas","aba","abs","aby","ace","act","add","ado","ads","adz","aff","aft","aga","age","ago","ags","aha","ahi","ahs","aid","ail","aim","ain","air","ais","ait","aji","ala","alb","ale","all","alp","als","alt","ama","ami","amp","amu","ana","and","ane","ani","ant","any","ape","apo","app","apt","arb","arc","are","arf","ark","arm","ars","art","ash","ask","asp","ass","ate","att","auk","ava","ave","avo","awa","awe","awl","awn","axe","aye","ays","azo","baa","bad","bag","bah","bal","bam","ban","bap","bar","bas","bat","bay","bed","bee","beg","bel","ben","bes","bet","bey","bib","bid","big","bin","bio","bis","bit","biz","boa","bob","bod","bog","boo","bop","bos","bot","bow","box","boy","bra","bro","brr","bub","bud","bug","bum","bun","bur","bus","but","buy","bye","bys","cab","cad","caf","cam","can","cap","car","cat","caw","cay","cee","cel","cep","chi","cig","cis","cob","cod","cog","col","con","coo","cop","cor","cos","cot","cow","cox","coy","coz","cru","cry","cub","cud","cue","cum","cup","cur","cut","cuz","cwm","dab","dad","dag","dah","dak","dal","dam","dan","dap","das","daw","day","deb","dee","def","del","den","dep","dev","dew","dex","dey","dib","did","die","dif","dig","dim","din","dip","dis","dit","doc","doe","dog","doh","dol","dom","don","dor","dos","dot","dow","dry","dub","dud","due","dug","duh","dui","dum","dun","duo","dup","dye","ear","eat","eau","ebb","eco","ecu","edh","eds","eek","eel","eew","eff","efs","eft","egg","ego","eke","eld","elf","elk","ell","elm","els","eme","emo","ems","emu","end","eng","ens","eon","era","ere","erg","ern","err","ers","ess","est","eta","eth","eve","ewe","eye","fab","fad","fag","fah","fan","far","fas","fat","fax","fay","fed","fee","feh","fem","fen","fer","fes","fet","feu","few","fey","fez","fib","fid","fie","fig","fil","fin","fir","fit","fix","fiz","flu","fly","fob","foe","fog","foh","fon","foo","fop","for","fou","fox","foy","fro","fry","fub","fud","fug","fun","fur","gab","gad","gae","gag","gal","gam","gan","gap","gar","gas","gat","gay","ged","gee","gel","gem","gen","get","gey","ghi","gib","gid","gie","gif","gig","gin","gip","gis","git","gnu","goa","gob","god","goo","gor","gos","got","gox","grr","gul","gum","gun","gut","guv","guy","gym","gyp","had","hae","hag","hah","haj","ham","hao","hap","has","hat","haw","hay","heh","hem","hen","hep","her","hes","het","hew","hex","hey","hic","hid","hie","him","hin","hip","his","hit","hmm","hob","hod","hoe","hog","hom","hon","hoo","hop","hot","how","hoy","hub","hue","hug","huh","hum","hun","hup","hut","hyp","ice","ich","ick","icy","ids","iff","ifs","igg","ilk","ill","imp","ink","inn","ins","ion","ire","irk","ism","its","ivy","jab","jag","jam","jar","jaw","jay","jee","jet","jeu","jib","jig","jin","job","joe","jog","jot","jow","joy","jug","jun","jus","jut","kab","kae","kaf","kas","kat","kay","kea","kef","keg","ken","kep","kex","key","khi","kid","kif","kin","kip","kir","kis","kit","koa","kob","koi","kop","kor","kos","kue","kye","lab","lac","lad","lag","lah","lam","lap","lar","las","lat","lav","law","lax","lay","lea","led","lee","leg","lei","lek","let","leu","lev","lex","ley","lib","lid","lie","lin","lip","lis","lit","lob","log","loo","lop","lot","low","lox","lud","lug","lum","lun","luv","lux","lye","mac","mad","mae","mag","mam","man","map","mar","mas","mat","maw","max","may","med","meg","meh","mel","mem","men","met","mew","mho","mib","mic","mid","mig","mil","mim","mir","mis","mix","mmm","moa","mob","moc","mod","mog","moi","mol","mom","mon","moo","mop","mor","mos","mot","mow","mud","mug","mum","mun","mus","mut","mux","myc","nab","nae","nag","nah","nam","nan","nap","nav","naw","nay","neb","nee","neg","net","new","nib","nil","nim","nip","nit","nix","nob","nod","nog","noh","nom","noo","nor","nos","not","now","nth","nub","nug","nun","nus","nut","oaf","oak","oar","oat","oba","obe","obi","oca","och","oda","odd","ode","ods","oes","off","oft","ohm","oho","ohs","oik","oil","oka","oke","old","ole","oma","oms","one","ono","ons","oof","ooh","oot","opa","ope","ops","opt","ora","orb","orc","ore","org","ors","ort","ose","oud","our","out","ova","owe","owl","own","owt","oxo","oxy","pac","pad","pah","pak","pal","pam","pan","pap","par","pas","pat","paw","pax","pay","pea","pec","ped","pee","peg","peh","pen","pep","per","pes","pet","pew","phi","pho","pht","pia","pic","pie","pig","pin","pip","pis","pit","piu","pix","ply","pod","poh","poi","pol","pom","poo","pop","pos","pot","pow","pox","pro","pry","psi","pst","pub","pud","pug","pul","pun","pup","pur","pus","put","pya","pye","pyx","qat","qis","qua","rad","rag","rah","rai","raj","ram","ran","rap","ras","rat","raw","rax","ray","reb","rec","red","ree","ref","reg","rei","rem","rep","res","ret","rev","rex","rez","rho","ria","rib","rid","rif","rig","rim","rin","rip","rob","roc","rod","roe","rom","roo","rot","row","rub","rue","rug","rum","run","rut","rya","rye","ryu","sab","sac","sad","sae","sag","sal","san","sap","sat","sau","saw","sax","say","sea","sec","see","seg","sei","sel","sen","ser","set","sev","sew","sex","sha","she","shh","sho","shy","sib","sic","sig","sim","sin","sip","sir","sis","sit","six","ska","ski","sky","sly","sob","soc","sod","soh","sol","som","son","sop","sos","sot","sou","sow","sox","soy","spa","spy","sri","sty","sub","sue","suk","sum","sun","sup","suq","sus","syn","tab","tad","tae","tag","taj","tam","tan","tao","tap","tar","tas","tat","tau","tav","taw","tax","tea","tec","ted","tee","teg","tel","ten","tes","tet","tew","the","tho","thy","tic","tie","til","tin","tip","tis","tit","tix","tiz","tod","toe","tog","tom","ton","too","top","tor","tot","tow","toy","try","tsk","tub","tug","tui","tum","tun","tup","tut","tux","twa","two","tye","udo","ugh","uke","ulu","umm","ump","ums","uni","uns","upo","ups","urb","urd","urn","urp","use","uta","ute","uts","vac","van","var","vas","vat","vau","vav","vaw","vee","veg","vet","vex","via","vid","vie","vig","vim","vin","vis","voe","vog","vow","vox","vug","vum","wab","wad","wae","wag","wan","wap","war","was","wat","waw","wax","way","web","wed","wee","wen","wet","wha","who","why","wig","win","wis","wit","wiz","woe","wok","won","woo","wos","wot","wow","wry","wud","wye","wyn","xis","yag","yah","yak","yam","yap","yar","yas","yaw","yay","yea","yeh","yen","yep","yes","yet","yew","yin","yip","yob","yod","yok","yom","yon","you","yow","yuk","yum","yup","zag","zap","zas","zax","zed","zee","zek","zen","zep","zig","zin","zip","zit","zoa","zoo","zuz","zzz"];
+			
+			var result = "";
+			var i;
+			for (i = 0; i < 3; i++) {
+				var item = threeLetterWords[Math.floor(Math.random() * threeLetterWords.length)];
+				result = result + " " + item;
+			} 
+			
+			result = result.trim();
+			result = result.replace(/ /g, '-');
+			
+			return result;
+		}
+		
+		var init = function() {
+			var parent = document.getElementById("appContainer");
+			canvas.width = parent.offsetWidth;
+			canvas.height = parent.offsetWidth;
+			
+			var myId = generateIdString();
+			
+			peer = new Peer(myId, {
+				debug: 2
+            });
+
+			peer.on('open', function(id) {
+				document.getElementById("connection").innerHTML = "My ID is " + id;
+				mypeerid = id;
+			});
+	
+			peer.on('connect', function() {
+				document.getElementById("connection").innerHTML = "Say something and see if anyone is listening.";
+	
+			});
+	
+			// Receive from any event
+			peer.on('connection', function(conn) {
+				connection = conn;
+				connection.on('open', function() {
+					document.getElementById('connstatus').innerHTML += "Connection Established";
+				});
+				connection.on('data', function(data) {
+					incoming = data;
+					processIncoming(incoming)
+				});
+			});
+		};
+		
+		// peer.js vars
+		var counter = 0;
+		var mypeerid = null;
+		var peer = null;
+		var connection = null;
+		var incoming;
+		
+		// canvas vars
+		var canvas = document.getElementById('myCanvas');
+		var context = canvas.getContext('2d');
+		var myBuffer = [];
+		var theirBuffer = [];
+		
+		canvas.addEventListener('mousemove', function(evt) {
+			var mousePos = getMousePos(canvas, evt);
+			var circleObj = new Circle(mousePos.x, mousePos.y, 50, "000000", "000000", 2);
+			saveInBuffer(circleObj);
+			var serialised = JSON.stringify(circleObj);
+			senddata(serialised);
+		}, false);
+	  
+		window.onload = init();
+		window.requestAnimationFrame(mainLoop);
+		
+    </script>
+  </body>
+</html>      

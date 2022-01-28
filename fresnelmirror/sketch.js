@@ -1,12 +1,14 @@
-var centerX = 200;
-var centerY = 200;
+var centerX = 0;
+var centerY = 0;
 var capture;
 var circleMask;
 var snapshots = []; //image array, empty at start
 var total = 61; //number of pictures
 
 function setup() {
-  createCanvas(400, 400);
+  createCanvas(window.innerWidth, window.innerWidth);
+  centerX = window.innerWidth / 2;
+  centerY = window.innerWidth / 2;
   capture = createCapture(VIDEO);
   capture.size(640, 480);
   capture.hide();
